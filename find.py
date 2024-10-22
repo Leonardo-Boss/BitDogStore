@@ -5,8 +5,7 @@ VID = 0x2E8A
 
 def find_pico_porta():
     portas = serial.tools.list_ports.comports()
-    return portas
-    # return [porta for porta in portas if VID == porta.vid]
+    return [porta for porta in portas if VID == porta.vid]
 
 def is_micropython(porta):
     return porta.pid == PID_MICRO_PYTHON
@@ -30,11 +29,8 @@ def print_info(porta):
         print('usb_interface_path',porta.usb_interface_path)
         print('vid',porta.vid)
 
-picos = find_pico_porta()
-print(picos)
-for pico in picos:
-    print()
-    print(pico.device, is_micropython(pico))
-    print_info(pico)
-    print()
-
+if __name__ == "__main__":
+    picos = find_pico_porta()
+    print("porta\tmicropython")
+    for pico in picos:
+        print(f"{pico.device}\t{is_micropython(pico)}")
