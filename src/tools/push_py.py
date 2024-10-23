@@ -1,9 +1,8 @@
-import ampy.files as files
-import ampy.pyboard as pyboard
+from . import ampy
 
 def push(file, device):
-    board = pyboard.Pyboard(device)
-    file_manager = files.Files(board)
+    board = ampy.pyboard.Pyboard(device)
+    file_manager = ampy.files.Files(board)
     with open(file, 'rb') as f:
         file_manager.put(file, f.read())
 

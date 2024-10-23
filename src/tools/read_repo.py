@@ -1,5 +1,6 @@
 import os
 import json
+# TODO: usar path.join
 
 def get_apps_configs(DIR: str):
     apps_configs = []
