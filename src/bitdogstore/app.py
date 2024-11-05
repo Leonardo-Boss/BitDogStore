@@ -28,7 +28,7 @@ class BitDogStore(toga.App):
 
     def create_main_box(self):
         """Create the main layout with buttons for each app."""
-        apps = tools.read_repo.get_apps_configs("/home/eppi/Downloads/Projetos_Disciplina_IE323/")
+        apps = tools.read_repo.get_apps_configs("/home/eduardo/Desktop/Projetos_Disciplina_IE323/")
         buttons = []
         for app in apps:
             # Create a button
@@ -56,7 +56,7 @@ class BitDogStore(toga.App):
 
         # Add a back button to return to the main screen
         self.install_button.config = appconfig
-        
+
         box.add(label)
         box.add(description)
         button_box = toga.Box(children=[self.home_button, self.install_button], style=Pack(direction=ROW))
@@ -82,17 +82,24 @@ class BitDogStore(toga.App):
 
     async def install_micropython(self, config):
         dev = '/dev/ttyACM0'
-        #TODO: get hash file from board if exists
+        # TODO: get hash file from board if exists
         # hash_firmware = tools.gen_hash(config['micropython_config']['firmware'])
-        #TODO: update firmware
+        # TODO: update firmware
         # firmware_changed = True
         # if firmware_changed:
         #     await self.install_firmware(config['micropython_config']['firmware'])
-        #TODO: verificar se arquivos mudaram usar dev dinamico
+        # TODO: verificar se arquivos mudaram usar dev dinamico
         print(config['path'])
         for file in config['micropython_config']['files']:
-            print(file)
-            # tools.push_py.push(file, dev)
+            # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
+            destine_path = file.removeprefix(config['path']+'/').split('/')
+            # Criar pastas
+            if len(destine_path) > 1:
+                for i, dir in enumerate(destine_path[:1]):
+                    print('asdf:','/'.join(destine_path[:i]))
+                    tools.push_py.mkdir(dir, dev)
+            destine_name = '/'.join(destine_path)
+            tools.push_py.push(file, destine_name, dev)
 
     def windows_path_to_linux(self, path:str):
         return path.replace(r'\\', '/')
