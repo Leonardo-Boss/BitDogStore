@@ -69,9 +69,3 @@ elif sys.platform.startswith('linux'):
 
 else:
     raise(Exception("OS não suportado"))
-
-if __name__ == "__main__":
-    mounts = get_mounts()
-    print(mounts)
-    for mount in mounts:
-        push("blink_picow.uf2", mount)
