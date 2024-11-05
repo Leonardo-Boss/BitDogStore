@@ -11,11 +11,13 @@ import tools
 import time
 import os
 import json
+import serial
 
 from tools import ampy
 from tools import push_py
 from tools import gen_hash
 from tools import push_c
+from tools.find import is_micropython,find_porta
 
 class BitDogStore(toga.App):
     def startup(self):
@@ -79,7 +81,7 @@ class BitDogStore(toga.App):
         if widget.config.get('micropython_config'):
             await self.install_micropython(widget.config)
         else:
-            await self.install_firmware(widget.config['c_config']['firmware'])
+            await self.update_firmware(widget.config['c_config']['firmware'])
 
         print(f"installing {widget.config['app_name']} {time.time()}")
         widget.enabled = True
@@ -87,39 +89,19 @@ class BitDogStore(toga.App):
         print(f"done")
 
     async def install_micropython(self, config):
-        # TODO: Remover arquivos
-        # TODO: Identificar se é C
-        is_c = False
-        if is_c:
-            await self.update_firmware(config)
         dev = '/dev/ttyACM0'
-        new_firmware = gen_hash(config['micropython_config']['firmware'])
-        try:
-            cur_firmware = push_py.get('firmware',dev).decode()
-        except:
-            cur_firmware = None
-            
-        if new_firmware != cur_firmware:
-            print('Firmware Diferente')
-            input()
-            await self.update_firmware(config)
         
-        with open('firmware', 'w') as file:
-            file.write(new_firmware)
-        tools.push_py.push('firmware', 'firmware', dev)
-        os.remove('firmware')
-        
+        await self.check_change_micropython_firmware(config,dev)
         print(f"Installing {config['path']}")
         new_version = await self.gen_version(config)
-        try:
-            cur_version = json.loads(push_py.get('version.json',dev))
-        except:
-            cur_version = None
-        
+        cur_version = await self.get_cur_version(dev)
+        files_remove = await self.get_cur_app_files(dev)
         for file in config['micropython_config']['files']:
             # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
             destine_path = file.removeprefix(config['path']+'/').split('/')
             destine_name = '/'.join(destine_path)
+            if f'/{destine_name}' in files_remove:
+                files_remove.pop(files_remove.index(f'/{destine_name}'))
             if cur_version:
                 if new_version.get(destine_name) == cur_version.get(destine_name):
                     print(f'{destine_name} igual')
@@ -130,18 +112,64 @@ class BitDogStore(toga.App):
                 for i, dir in enumerate(destine_path[:1]):
                     tools.push_py.mkdir(dir, dev)
             tools.push_py.push(file, destine_name, dev)
+        await self.remove_files(files_remove,dev)
+        await self.update_version(new_version,dev)
+    
+    async def check_change_micropython_firmware(self,config,dev):
+        if not is_micropython(find_porta(dev)):
+            print("Mudando Firmware para micropython")
+            input()
+            await self.update_firmware(config['micropython_config']['firmware'])
+        new_firmware = gen_hash(config['micropython_config']['firmware'])
+        try:
+            cur_firmware = push_py.get('firmware',dev).decode()
+        except:
+            cur_firmware = None
             
+        if new_firmware != cur_firmware:
+            print('Firmware Diferente')
+            input()
+            await self.update_firmware(config['micropython_config']['firmware'])
+        
+        with open('firmware', 'w') as file:
+            file.write(new_firmware)
+        tools.push_py.push('firmware', 'firmware', dev)
+        os.remove('firmware')
+        
+    async def remove_files(self,files,dev):
+        for file in files:
+            try:
+                push_py.rm(file,dev)
+            except:
+                push_py.rmdir(file,dev)
+            print(f'arquivo {file} apagado')
+            
+    async def get_cur_version(self,dev):
+        try:
+            cur_version = json.loads(push_py.get('version.json',dev))
+        except:
+            cur_version = None
+        
+        return cur_version
+        
+    async def get_cur_app_files(self,dev):
+        files_remove = push_py.ls(dev)
+        index = files_remove.index("/firmware")
+        if index:
+            files_remove.pop(index)
+        index = files_remove.index("/version.json")
+        if index:
+            files_remove.pop(index)
+        return files_remove
+        
+    async def update_version(self,new_version,dev):
         with open('version.json', 'w') as file:
             json.dump(new_version,file)
         tools.push_py.push('version.json', 'version.json', dev)
         os.remove('version.json')
-
+        
     def windows_path_to_linux(self, path:str):
         return path.replace(r'\\', '/')
-
-
-    async def install_firmware(self, firmware):
-        pass
 
     def back_to_main(self, widget):
         """Return to the main screen."""
@@ -155,11 +183,11 @@ class BitDogStore(toga.App):
             version[destine_path] = hash
         return version
         
-    async def update_firmware(self,config):
+    async def update_firmware(self,firmware):
         mounts = push_c.get_mounts()
         #ToDo tirar sa porra de for
         for mount in mounts:
-            push_c.push(config['micropython_config']['firmware'],mount)
+            push_c.push(firmware,mount)
             cur_mounts = push_c.get_mounts()
             while mount in cur_mounts:
                 cur_mounts = push_c.get_mounts()

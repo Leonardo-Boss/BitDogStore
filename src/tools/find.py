@@ -29,6 +29,12 @@ def print_info(porta):
         print('usb_interface_path',porta.usb_interface_path)
         print('vid',porta.vid)
 
+def find_porta(device_path):
+    portas = serial.tools.list_ports.comports()
+    for porta in portas:
+        if porta.device == device_path:
+            return porta
+
 if __name__ == "__main__":
     picos = find_pico_porta()
     print("porta\tmicropython")

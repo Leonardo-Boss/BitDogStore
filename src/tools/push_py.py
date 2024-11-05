@@ -21,13 +21,13 @@ def rmdir(dir, device):
     file_manager = ampy.files.Files(board)
     file_manager.rmdir(dir)
 
-def ls(device,dir=None):
+def ls(device,dir=None,recursive=True):
     board = ampy.pyboard.Pyboard(device)
     file_manager = ampy.files.Files(board)
     if dir:
-        return file_manager.ls(dir,long_format=False)
+        return file_manager.ls(dir,long_format=False,recursive=True)
     else:
-        return file_manager.ls(long_format=False)
+        return file_manager.ls(long_format=False,recursive=True)
 
 def get(file, device):
     board = ampy.pyboard.Pyboard(device)
