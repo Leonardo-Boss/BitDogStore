@@ -87,13 +87,12 @@ class BitDogStore(toga.App):
         print(f"done")
 
     async def install_micropython(self, config):
-        dev = '/dev/ttyACM0'
-        # hash_firmware = tools.gen_hash(config['micropython_config']['firmware'])
-        # TODO: update firmware
-        # firmware_changed = True
-        # if firmware_changed:
-        #     await self.install_firmware(config['micropython_config']['firmware'])
         # TODO: Remover arquivos
+        # TODO: Identificar se é C
+        is_c = False
+        if is_c:
+            await self.update_firmware(config)
+        dev = '/dev/ttyACM0'
         new_firmware = gen_hash(config['micropython_config']['firmware'])
         try:
             cur_firmware = push_py.get('firmware',dev).decode()
@@ -103,14 +102,7 @@ class BitDogStore(toga.App):
         if new_firmware != cur_firmware:
             print('Firmware Diferente')
             input()
-            mounts = push_c.get_mounts()
-            #ToDo tirar sa porra de for
-            for mount in mounts:
-                push_c.push(config['micropython_config']['firmware'],mount)
-                cur_mounts = push_c.get_mounts()
-                while mount in cur_mounts:
-                    cur_mounts = push_c.get_mounts()
-                    await sleep(1)
+            await self.update_firmware(config)
         
         with open('firmware', 'w') as file:
             file.write(new_firmware)
@@ -163,5 +155,14 @@ class BitDogStore(toga.App):
             version[destine_path] = hash
         return version
         
+    async def update_firmware(self,config):
+        mounts = push_c.get_mounts()
+        #ToDo tirar sa porra de for
+        for mount in mounts:
+            push_c.push(config['micropython_config']['firmware'],mount)
+            cur_mounts = push_c.get_mounts()
+            while mount in cur_mounts:
+                cur_mounts = push_c.get_mounts()
+                await sleep(1)
 def main():
     return BitDogStore()
