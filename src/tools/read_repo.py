@@ -33,6 +33,10 @@ def get_apps_configs(dir: str):
                         config['c_config']['firmware'] = os.path.join(path,config['c_config']['firmware'])
                     if config.get('app_page_docs'):
                         config['app_page_docs'] = os.path.join(path,config['app_page_docs'])
+                    if config.get('icon'):
+                        config['icon'] = os.path.join(path,config['icon'])
+                    else:
+                        config['icon'] = 'empty.jpg'
                     config['path'] = path
                     apps_configs.append(config)
             config = None

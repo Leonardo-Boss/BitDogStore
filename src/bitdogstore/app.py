@@ -4,9 +4,11 @@ Store for all BitDogLab projects
 
 from ast import dump
 from asyncio import sleep
+import textwrap
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
+from toga.widgets.scrollcontainer import ScrollContainer
 import tools
 import time
 import os
@@ -30,7 +32,7 @@ class BitDogStore(toga.App):
 
         self.ports = {}
 
-        self.apps = tools.read_repo.get_apps_configs("/home/eppi/Downloads/Projetos_Disciplina_IE323/")
+        self.apps = tools.read_repo.get_apps_configs("/home/eduardo/Desktop/Projetos_Disciplina_IE323/")
 
         dropdown = toga.Selection(items=[], style=Pack(padding=10, flex=1))
         dropdown_refresh = toga.Button("Refresh", on_press=self.create_dropdown, style=Pack(padding=10))
@@ -86,18 +88,33 @@ class BitDogStore(toga.App):
 
     def create_main_box(self):
         """Create the main layout with buttons for each app."""
-        buttons = [self.dropdown, self.label]
+        buttons = []
+        dropdown = toga.Box(children=[self.label, self.dropdown], style=Pack(direction=COLUMN))
+        width = 300
+        j = 0
+        boxes_ = []
+        boxes = []
         for app in self.apps:
-            # Create a button
+            j += 1
+            image = toga.Image(app['icon'])
+            image_widget = toga.ImageView(image,style=Pack(width=width))
+
             button = toga.Button(
                 app["app_name"],
                 on_press=self.on_button_press,
-                style=Pack(padding=10, flex=1)
+                style=Pack(padding=10, flex=1, width=width)
             )
             button.config = app  # Store app config in the button
-            buttons.append(button)
-
-        return toga.Box(children=buttons, style=Pack(direction=COLUMN))
+            box = toga.Box(children=[image_widget,button], style=Pack(direction=COLUMN))
+            # agora deve funcionar deu
+            boxes.append(box)
+            if j == 3:
+                boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW))) 
+                j = 0
+                boxes = []
+                continue
+        stuff = toga.Box(children=[dropdown]+boxes_, style=Pack(direction=COLUMN))
+        return toga.ScrollContainer(content= stuff)
 
     def on_button_press(self, widget):
         """Handle button press to show app details."""
@@ -181,7 +198,7 @@ class BitDogStore(toga.App):
                     cur_firmware = push_py.get('firmware',dev).decode()
                 except:
                     cur_firmware = None
-                
+
                 if new_firmware != cur_firmware:
                     print('Firmware Diferente')
                     input()
@@ -189,13 +206,13 @@ class BitDogStore(toga.App):
         else:
             await self.update_firmware(config['micropython_config']['firmware'])
         self.create_firmware(new_firmware, dev)
-        
+
     def create_firmware(self, new_firmware, dev):
         with open('firmware', 'w') as file:
             file.write(new_firmware)
         tools.push_py.push('firmware', 'firmware', dev)
         os.remove('firmware')
-        
+
     async def remove_files(self,files,dev):
         for file in files:
             try:
@@ -203,15 +220,15 @@ class BitDogStore(toga.App):
             except:
                 push_py.rmdir(file,dev)
             print(f'arquivo {file} apagado')
-            
+
     async def get_cur_version(self,dev):
         try:
             cur_version = json.loads(push_py.get('version.json',dev))
         except:
             cur_version = None
-        
+
         return cur_version
-        
+
     async def get_cur_app_files(self,dev):
         files_remove = push_py.ls(dev)
         if '/firmware' in files_remove:
@@ -219,13 +236,13 @@ class BitDogStore(toga.App):
         if '/version.json' in files_remove:
             files_remove.remove('/version.json')
         return files_remove
-        
+
     async def update_version(self,new_version,dev):
         with open('version.json', 'w') as file:
             json.dump(new_version,file)
         tools.push_py.push('version.json', 'version.json', dev)
         os.remove('version.json')
-        
+
     def windows_path_to_linux(self, path:str):
         return path.replace(r'\\', '/')
 
@@ -266,7 +283,7 @@ class BitDogStore(toga.App):
             destine_path = file.removeprefix(config['path']+'/')
             version[destine_path] = hash
         return version
-        
+
     async def update_firmware(self,firmware):
         mount = self.dropdown.children[0].value
         push_c.push(firmware,mount)
