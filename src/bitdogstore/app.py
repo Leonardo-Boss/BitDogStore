@@ -108,8 +108,8 @@ class BitDogStore(toga.App):
             box = toga.Box(children=[image_widget,button], style=Pack(direction=COLUMN))
             # agora deve funcionar deu
             boxes.append(box)
+            boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW))) 
             if j == 3:
-                boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW))) 
                 j = 0
                 boxes = []
                 continue
