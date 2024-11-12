@@ -180,6 +180,7 @@ class BitDogStore(toga.App):
         dev = self.dropdown.children[0].value
 
         await self.check_change_micropython_firmware(config,dev)
+        dev = self.dropdown.children[0].value
         print(f"Installing {config['path']}")
         new_version = await self.gen_version(config)
         cur_version = await self.get_cur_version(dev)
