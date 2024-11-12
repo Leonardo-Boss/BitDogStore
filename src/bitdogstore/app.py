@@ -208,8 +208,11 @@ class BitDogStore(toga.App):
 
                 if new_firmware != cur_firmware:
                     print('Firmware Diferente')
-                    input()
-                    await self.update_firmware(config['micropython_config']['firmware'])
+                    self.firmware_updated = False
+                    self.select_device_window(config)
+                    while not self.firmware_updated:
+                        await sleep(0.5)
+                    return
         else:
             await self.update_firmware(config['micropython_config']['firmware'])
         self.create_firmware(new_firmware, dev)
