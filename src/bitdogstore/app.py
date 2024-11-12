@@ -14,6 +14,7 @@ import time
 import os
 import json
 import serial
+from markdown import markdown  # To convert Markdown text to HTML
 
 from tools import ampy
 from tools import push_py
@@ -109,7 +110,7 @@ class BitDogStore(toga.App):
             # agora deve funcionar deu
             boxes.append(box)
             boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW))) 
-            if j == 3:
+            if j == 5:
                 j = 0
                 boxes = []
                 continue
@@ -127,6 +128,17 @@ class BitDogStore(toga.App):
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
         label = toga.Label(appconfig["app_name"], style=Pack(padding=(10, 0)))
         description = toga.Label(appconfig["description"], style=Pack(padding=(10, 0)))
+        has_app_page_docs = False
+        if appconfig.get("app_page_docs"):
+            has_app_page_docs = True
+            with open(appconfig["app_page_docs"],"r") as readme:
+                app_page_docs_md =  readme.read()
+                
+            app_page_docs_box = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
+            app_page_docs_html = markdown(app_page_docs_md)
+            text_display = toga.WebView(style=Pack(flex=1))
+            text_display.set_content('file://', f"<html><body>{app_page_docs_html}</body></html>")
+            app_page_docs_box.add(text_display)
 
         # Add a back button to return to the main screen
         self.install_button.config = appconfig
@@ -135,6 +147,8 @@ class BitDogStore(toga.App):
         box.add(self.label)
         box.add(label)
         box.add(description)
+        if has_app_page_docs:
+            box.add(app_page_docs_box)
         button_box = toga.Box(children=[self.home_button, self.install_button], style=Pack(direction=ROW))
         box.add(button_box)
 

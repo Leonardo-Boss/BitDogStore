@@ -41,7 +41,6 @@ def get_apps_configs(dir: str):
                     apps_configs.append(config)
             config = None
         apps = None
-    print(apps_configs)
     return apps_configs
 
 def linux_to_os(path):
