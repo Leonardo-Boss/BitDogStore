@@ -21,7 +21,7 @@ def get_apps_configs(dir: str):
                     if config.get('micropython_config'):
                         if not config['micropython_config'].get('firmware'):
                             if repo.get('repo_micropython_firmware'):
-                                config['micropython_config']['firmware'] = os.path.join(path,linux_to_os(repo['repo_micropython_firmware']))
+                                config['micropython_config']['firmware'] = os.path.join(dir,linux_to_os(repo['repo_micropython_firmware']))
                             else:
                                 config['micropython_config']['firmware'] = os.path.join(
                                     os.path.abspath(os.getcwd()),'default.uf2')
