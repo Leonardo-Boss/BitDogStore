@@ -314,7 +314,7 @@ class BitDogStore(toga.App):
         config = widget.config
         self.show_app_screen(config)
         self.create_dropdown()
-        new_firmware = config['micropython_config']['firmware']
+        new_firmware = gen_hash(config['micropython_config']['firmware'])
         self.create_firmware(new_firmware, self.dropdown.children[0].value)
         self.firmware_updated = True
 
