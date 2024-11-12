@@ -146,9 +146,16 @@ class BitDogStore(toga.App):
         self.installing = True
         widget.enabled = False
         if widget.config.get('micropython_config'):
+            print('install_micropython')
             await self.install_micropython(widget.config)
         else:
-            await self.update_firmware(widget.config['c_config']['firmware'])
+            print('install_c')
+            if self.ports[self.dropdown.children[0].value]:
+                print('install_c python')
+                await self.select_device_window_c(widget.config)
+            else:
+                print('install_c c')
+                await self.update_firmware(widget.config['c_config']['firmware'])
 
         print(f"installing {widget.config['app_name']} {time.time()}")
         widget.enabled = True
@@ -265,12 +272,58 @@ class BitDogStore(toga.App):
 
         self.main_window.content = box
 
+    def select_device_window_py(self, config):
+        """window for selecting a device after python firmware install"""
+        self.create_dropdown_py()
+        box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
+        label = toga.Label("Selecione o BitDogLab Correto", style=Pack(padding=(10, 0)))
+
+        box.add(self.dropdown)
+        box.add(self.label)
+        box.add(label)
+        button = toga.Button("Ok", on_press=self.create_firmware_version_go_back, style=Pack(padding=10))
+        button.config = config
+        box.add(button)
+
+        self.main_window.content = box
+
+    async def create_firmware_version_go_back(self, widget):
+        config = widget.config
+        self.show_app_screen(config)
+        self.create_dropdown()
+        new_firmware = config['micropython_config']['firmware']
+        self.create_firmware(new_firmware, self.dropdown.children[0].value)
+        self.firmware_updated = True
+
     async def update_firmware_go_back(self, widget):
         config = widget.config
         self.show_app_screen(config)
+        self.create_dropdown()
         new_firmware = config['micropython_config']['firmware']
         await self.update_firmware(new_firmware)
-        self.create_firmware(new_firmware, self.dropdown.children[0].value)
+        self.select_device_window_py(widget.config)
+
+    async def select_device_window_c(self, config):
+        """window for selecting a device after python firmware install"""
+        self.create_dropdown_c()
+        box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
+        label = toga.Label("Selecione o BitDogLab Correto", style=Pack(padding=(10, 0)))
+
+        box.add(self.dropdown)
+        box.add(self.label)
+        box.add(label)
+        button = toga.Button("Ok", on_press=self.update_firmware_go_back_c, style=Pack(padding=10))
+        button.config = config
+        box.add(button)
+
+        self.main_window.content = box
+
+    async def update_firmware_go_back_c(self, widget):
+        config = widget.config
+        self.create_dropdown()
+        self.show_app_screen(config)
+        new_firmware = config['c_config']['firmware']
+        await self.update_firmware(new_firmware)
         self.firmware_updated = True
 
     def ok(self, widget):
@@ -286,6 +339,7 @@ class BitDogStore(toga.App):
 
     async def update_firmware(self,firmware):
         mount = self.dropdown.children[0].value
+
         push_c.push(firmware,mount)
         cur_mounts = push_c.get_mounts()
         while mount in cur_mounts:
