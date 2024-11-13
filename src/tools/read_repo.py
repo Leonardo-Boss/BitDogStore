@@ -31,8 +31,8 @@ def get_apps_configs(dir: str):
                             config['micropython_config']['files'][i] =  os.path.join(path,linux_to_os(file))
                     else:
                         config['c_config']['firmware'] = os.path.join(path,config['c_config']['firmware'])
-                    if config.get('app_page_docs'):
-                        config['app_page_docs'] = os.path.join(path,config['app_page_docs'])
+                    if config.get('docs'):
+                        config['docs'] = os.path.join(path,config['docs'])
                     if config.get('icon'):
                         config['icon'] = os.path.join(path,config['icon'])
                     else:

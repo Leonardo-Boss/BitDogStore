@@ -7,14 +7,15 @@ from asyncio import sleep
 import textwrap
 import toga
 from toga.style import Pack
-from toga.style.pack import COLUMN, ROW
+from toga.style.pack import COLUMN, ROW, BOLD
 from toga.widgets.scrollcontainer import ScrollContainer
 import tools
 import time
 import os
 import json
 import serial
-from markdown import markdown  # To convert Markdown text to HTML
+from markdown2 import markdown  # To convert Markdown text to HTML
+import re
 
 from tools import ampy
 from tools import push_py
@@ -126,29 +127,39 @@ class BitDogStore(toga.App):
     def show_app_screen(self, appconfig):
         """Display the screen for the selected app."""
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
-        label = toga.Label(appconfig["app_name"], style=Pack(padding=(10, 0)))
-        description = toga.Label(appconfig["description"], style=Pack(padding=(10, 0)))
-        has_app_page_docs = False
-        if appconfig.get("app_page_docs"):
-            has_app_page_docs = True
-            with open(appconfig["app_page_docs"],"r") as readme:
-                app_page_docs_md =  readme.read()
-                
-            app_page_docs_box = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
-            app_page_docs_html = markdown(app_page_docs_md)
-            text_display = toga.WebView(style=Pack(flex=1))
-            text_display.set_content('file://', f"<html><body>{app_page_docs_html}</body></html>")
-            app_page_docs_box.add(text_display)
 
         # Add a back button to return to the main screen
         self.install_button.config = appconfig
-
         box.add(self.dropdown)
         box.add(self.label)
-        box.add(label)
-        box.add(description)
-        if has_app_page_docs:
-            box.add(app_page_docs_box)
+        
+        box.add(toga.Label(appconfig["app_name"], style=Pack(padding=(10, 0),font_size=24, font_weight=BOLD)))
+        
+        box.add(toga.Label(appconfig["description"], style=Pack(padding=(10, 0))))
+        
+        if appconfig.get("docs"):
+            with open(appconfig["docs"],"r") as readme:
+                docs_md =  readme.read()
+                
+            docs_box = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
+            docs_html = markdown(docs_md)
+            docs_html = re.sub(
+                    r'src="(?!http)(.*?)"', 
+                    rf'src="file://{appconfig["path"]}/\1"', 
+                    docs_html
+                 )
+            docs_webview = toga.WebView(style=Pack(flex=1))
+            docs_webview.set_content('file://', f"<html><body>{docs_html}</body></html>")
+            docs_box.add(docs_webview)
+            box.add(docs_box)
+        if appconfig.get("maintainers"):
+            maintainers = ', '.join(appconfig['maintainers'])
+            box.add(toga.Label(maintainers, style=Pack(padding=(10, 0))))
+        if appconfig.get("contacts"):
+            contacts = ', '.join(appconfig['contacts'])
+            box.add(toga.Label(contacts, style=Pack(padding=(10, 0))))
+        if appconfig.get("website"):
+            box.add(toga.Label(appconfig['website'], style=Pack(padding=(10, 0))))
         button_box = toga.Box(children=[self.home_button, self.install_button], style=Pack(direction=ROW))
         box.add(button_box)
 
