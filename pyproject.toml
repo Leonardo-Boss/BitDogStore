@@ -3,9 +3,9 @@
 project_name = "BitDogStore"
 bundle = "com.bitdoglab"
 version = "0.0.1"
-url = "https://bitdoglab.com/bitdogstore"
+url = "https://escola4pontozero.fee.unicamp.br/"
 license.file = "LICENSE"
-author = "Leonardo Boss"
+author = "Leonardo Boss and Eduardo Vidoretti Argenton"
 author_email = "leonardoboss2001@gmail.com"
 
 [tool.briefcase.app.bitdogstore]

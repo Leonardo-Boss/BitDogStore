@@ -64,7 +64,7 @@ elif sys.platform.startswith('linux'):
             return []
 
     def push(file, mount):
-        print(mount);
+        print(mount)
         shutil.copy(file,mount)
 
 else:

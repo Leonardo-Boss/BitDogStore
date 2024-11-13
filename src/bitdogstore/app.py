@@ -1,7 +1,3 @@
-"""
-Store for all BitDogLab projects
-"""
-
 from ast import dump
 from asyncio import sleep
 import textwrap
@@ -16,12 +12,14 @@ import json
 import serial
 from markdown2 import markdown  # To convert Markdown text to HTML
 import re
+import git
 
 from tools import ampy
 from tools import push_py
 from tools import gen_hash
 from tools import push_c
 from tools.find import is_micropython,find_porta
+from tools.cache import get_repos_dir,ls_repos
 
 class BitDogStore(toga.App):
     def startup(self):
@@ -33,8 +31,8 @@ class BitDogStore(toga.App):
         """
 
         self.ports = {}
-
-        self.apps = tools.read_repo.get_apps_configs("/home/eduardo/Desktop/Projetos_Disciplina_IE323/")
+        
+        self.apps = tools.read_repo.get_apps_configs(ls_repos())
 
         dropdown = toga.Selection(items=[], style=Pack(padding=10, flex=1))
         dropdown_refresh = toga.Button("Refresh", on_press=self.create_dropdown, style=Pack(padding=10))
@@ -45,7 +43,7 @@ class BitDogStore(toga.App):
         self.dropdown.children[0].on_change = self.on_change
 
         # Label to display selected option
-        self.label = toga.Label("Select an option from the dropdown menu.",style=Pack(padding=10, flex=1))
+        self.label = toga.Label("Selecione a placa desejada",style=Pack(padding=10, flex=1))
 
         self.home_button = toga.Button("Back", on_press=self.back_to_main, style=Pack(padding=10))
         self.install_button = toga.Button("Install", on_press=self.install, style=Pack(padding=10))
@@ -90,6 +88,8 @@ class BitDogStore(toga.App):
 
     def create_main_box(self):
         """Create the main layout with buttons for each app."""
+        add_repo_button = toga.Button("Adicionar Repositório", on_press=self.on_add_press, style=Pack(padding=10))
+        update_button = toga.Button("Atualizar Repositórios", on_press=self.update_repos, style=Pack(padding=10))
         buttons = []
         dropdown = toga.Box(children=[self.label, self.dropdown], style=Pack(direction=COLUMN))
         width = 300
@@ -103,7 +103,7 @@ class BitDogStore(toga.App):
 
             button = toga.Button(
                 app["app_name"],
-                on_press=self.on_button_press,
+                on_press=self.on_app_press,
                 style=Pack(padding=10, flex=1, width=width)
             )
             button.config = app  # Store app config in the button
@@ -115,15 +115,51 @@ class BitDogStore(toga.App):
                 j = 0
                 boxes = []
                 continue
-        stuff = toga.Box(children=[dropdown]+boxes_, style=Pack(direction=COLUMN))
+        stuff = toga.Box(children=[add_repo_button]+[update_button]+[dropdown]+boxes_, style=Pack(direction=COLUMN))
         return toga.ScrollContainer(content= stuff)
 
-    def on_button_press(self, widget):
+    def update_repos(self,widget):
+        for repo in ls_repos():
+            origin = git.Repo(repo).remotes.origin
+            origin.pull()
+            print(f"{repo} Updated")
+        
+    def on_app_press(self, widget):
         """Handle button press to show app details."""
         app_config = widget.config
         self.show_app_screen(app_config)
+        
+    def on_add_press(self, widget):
+        self.show_add_screen()
 
 
+    def show_add_screen(self):
+        """Display the screen for the selected app."""
+        box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
+        # Create a title
+        box.add(toga.Label("Adicionar Repositórios", style=Pack(padding=(10, 0),font_size=24, font_weight=BOLD)))
+        
+        # Create a text input field
+        text_input = toga.TextInput(placeholder="Insira a URL")
+
+        # Create a button
+        def on_button_click(widget):
+            try:
+                git.Repo.clone_from(text_input.value, os.path.join(get_repos_dir(),os.path.splitext(os.path.basename(text_input.value))[0]))
+            except:
+                print("TODO: ERRO")
+        
+        button = toga.Button("Submit", on_press=on_button_click)
+
+        # Add elements to the main box
+        box.add(text_input)
+        box.add(button)
+        box.add(self.home_button)
+
+        # Set the content of the main window
+        self.main_window.title = "Adicionar Repositórios"
+        self.main_window.content = box
+        
     def show_app_screen(self, appconfig):
         """Display the screen for the selected app."""
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
