@@ -19,7 +19,7 @@ from tools import push_py
 from tools import gen_hash
 from tools import push_c
 from tools.find import is_micropython,find_porta
-from tools.cache import get_repos_dir,ls_repos
+from tools.cache import get_repos_dir,ls_repos,create_cache_dirs_if_not_exists
 
 class BitDogStore(toga.App):
     def startup(self):
@@ -31,7 +31,8 @@ class BitDogStore(toga.App):
         """
 
         self.ports = {}
-        
+        tools.cache.create_cache_dirs_if_not_exists()
+        tools.cache.extract_default_to_cache()
         self.apps = tools.read_repo.get_apps_configs(ls_repos())
 
         dropdown = toga.Selection(items=[], style=Pack(padding=10, flex=1))
