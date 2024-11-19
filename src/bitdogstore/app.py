@@ -5,7 +5,7 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, BOLD
 from toga.widgets.scrollcontainer import ScrollContainer
-import tools
+import bitdogstore.tools as tools
 import time
 import os
 import json
@@ -14,12 +14,12 @@ from markdown2 import markdown  # To convert Markdown text to HTML
 import re
 import git
 
-from tools import ampy
-from tools import push_py
-from tools import gen_hash
-from tools import push_c
-from tools.find import is_micropython,find_porta
-from tools.cache import get_repos_dir,ls_repos,create_cache_dirs_if_not_exists
+from bitdogstore.tools import ampy
+from bitdogstore.tools import push_py
+from bitdogstore.tools import gen_hash
+from bitdogstore.tools import push_c
+from bitdogstore.tools.find import is_micropython,find_porta
+from bitdogstore.tools.cache import get_repos_dir,ls_repos,create_cache_dirs_if_not_exists
 
 class BitDogStore(toga.App):
     def startup(self):
