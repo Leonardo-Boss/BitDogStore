@@ -311,8 +311,8 @@ class BitDogStore(toga.App):
                     tools.push_py.mkdir(dir, install_object.dev)
             # sobe o arquivo python
             tools.push_py.push(file, destine_name, install_object.dev)
-        await self.remove_files(files_remove, install_object.dev)
         await self.update_version(new_version, install_object.dev)
+        await self.remove_files(files_remove, install_object.dev)
 
     async def put_bootloader_update_firmware(self, install_object:Install, firmware):
         install_object.changing_device = True
