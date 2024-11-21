@@ -10,6 +10,7 @@ import json
 from markdown2 import markdown  # To convert Markdown text to HTML
 import re
 import git
+from pathlib import Path
 
 from bitdogstore.tools import push_py
 from bitdogstore.tools import gen_hash
@@ -209,7 +210,7 @@ class BitDogStore(toga.App):
             docs_html = markdown(docs_md)
             docs_html = re.sub(
                     r'src="(?!http)(.*?)"',
-                    rf'src="file://{appconfig["path"]}/\1"',
+                    rf'src="file://{Path(appconfig["path"]).as_posix()}/\1"',
                     docs_html
                  )
             docs_webview = toga.WebView(style=Pack(flex=1))
@@ -290,7 +291,7 @@ class BitDogStore(toga.App):
         # faz instalação dos arquivos python
         for file in install_object.config['micropython_config']['files']:
             # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
-            destine_path = file.removeprefix(install_object.config['path']+'/').split('/')
+            destine_path = str(Path(file).as_posix).removeprefix(str(Path(install_object.config['path']).as_posix())+'/').split('/')
             destine_name = '/'.join(destine_path)
 
             # se o arquivo faz parte do app não deve ser deletado
