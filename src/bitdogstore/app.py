@@ -1,4 +1,5 @@
 from asyncio import sleep
+import asyncio
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, BOLD
@@ -53,12 +54,12 @@ class BitDogStore(toga.App):
         serial_ports = list(map(lambda x: x.device, tools.find.find_pico_porta()))
         for serial_port in serial_ports:
             self.ports[serial_port] = True
-            
+
         # acha placas em modo bootload
         mount_ports = push_c.get_mounts()
         for mount_port in mount_ports:
             self.ports[mount_port] = False
-        
+
         # adiciona as placas ao dropdown
         items = serial_ports + mount_ports
         self.dropdown.children[0].items = items
@@ -71,7 +72,7 @@ class BitDogStore(toga.App):
         self.ports = {}
         for serial_port in mount_ports:
             self.ports[serial_port] = False
-        
+
         # adiciona as placas ao dropdown
         self.dropdown.children[0].items = mount_ports
         self.dropdown.children[1].on_press = self.create_dropdown_c
@@ -83,7 +84,7 @@ class BitDogStore(toga.App):
         self.ports = {}
         for serial_port in items:
             self.ports[serial_port] = True
-            
+
         # adiciona as placas ao dropdown
         self.dropdown.children[0].items = items
         self.dropdown.children[1].on_press = self.create_dropdown_py
@@ -98,7 +99,7 @@ class BitDogStore(toga.App):
         j = 0
         boxes_ = []
         boxes = []
-        
+
         # cria os widgets para os apps
         for app in self.apps:
             j += 1
@@ -114,26 +115,38 @@ class BitDogStore(toga.App):
             )
             button.config = app  # Store app config in the button
             box = toga.Box(children=[image_widget,button], style=Pack(direction=COLUMN))
-            
+
             # coloca os botões em grid
             boxes.append(box)
-            boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW))) 
+            boxes_.append(toga.Box(children=boxes,style=Pack(direction=ROW)))
             if j == 5:
                 j = 0
                 boxes = []
                 continue
-                
+
         # adiciona os apps à pagina
         stuff = toga.Box(children=[add_repo_button]+[update_button]+[dropdown]+boxes_, style=Pack(direction=COLUMN))
         return toga.ScrollContainer(content= stuff)
 
-    def update_repos(self, _):
+    async def open_folder_dialog(self, widget):
+        await self.dialog(toga.InfoDialog("Adicionar um repositório manualmente",
+            f"Para adicionar um localmente, insira-o em:\n{get_repos_dir()}"))
+    
+    async def update_repos(self,widget):
         """atualiza os repositorios"""
+        updated_repo = []
+        not_updated_repo = []
         for repo in ls_repos():
-            origin = git.Repo(repo).remotes.origin
-            origin.pull()
-            print(f"{repo} Updated")
-        
+            try:
+                origin = git.Repo(repo).remotes.origin
+                origin.pull()
+                print(f"{repo} Updated")
+                updated_repo.append(repo)
+            except:
+                not_updated_repo.append(repo)
+
+        await self.dialog(toga.InfoDialog("Repositórios Atualizados", f'Foram atualizados: {updated_repo}\nNão Foram: {not_updated_repo}'))
+
     def on_app_press(self, widget):
         """troca a tela do app no widget.config"""
         app_config = widget.config
@@ -143,34 +156,37 @@ class BitDogStore(toga.App):
         """troca para a tela de adicionar repositorio"""
         self.show_add_screen()
 
-
     def show_add_screen(self):
         """Cria a tela para cada app"""
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
         # Create a title
         box.add(toga.Label("Adicionar Repositórios", style=Pack(padding=(10, 0),font_size=24, font_weight=BOLD)))
-        
+
         # Create a text input field
         text_input = toga.TextInput(placeholder="Insira a URL")
 
         # Create a button
-        def on_button_click(_):
+        async def on_button_click(widget):
             try:
                 git.Repo.clone_from(text_input.value, os.path.join(get_repos_dir(),os.path.splitext(os.path.basename(text_input.value))[0]))
-            except:
-                print("TODO: ERRO")
-        
+            except Exception as e:
+                await self.dialog(toga.ErrorDialog("Ocorreu um erro", f'Não foi possivel adicionar o repositório\n{e}'))
+            else:
+                await self.dialog(toga.InfoDialog("Sucesso", f'O repositório foi adicionado com sucesso'))
+
         button = toga.Button("Submit", on_press=on_button_click)
+        open_folder_button = toga.Button("Como Adicionar Localmente?",on_press=self.open_folder_dialog,style=Pack(padding=10))
 
         # Add elements to the main box
         box.add(text_input)
         box.add(button)
+        box.add(open_folder_button)
         box.add(self.home_button)
 
         # Set the content of the main window
         self.main_window.title = "Adicionar Repositórios"
         self.main_window.content = box
-        
+
     def show_app_screen(self, appconfig):
         """Cria a tela para cada app"""
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
@@ -181,18 +197,19 @@ class BitDogStore(toga.App):
         box.add(self.dropdown)
         box.add(self.label)
         box.add(toga.Label(appconfig["app_name"], style=Pack(padding=(10, 0),font_size=24, font_weight=BOLD)))
+        box.add(toga.Label("MicroPython"if appconfig.get('micropython_config') else "C", style=Pack(padding=(2, 0),font_size=8)))
         box.add(toga.Label(appconfig["description"], style=Pack(padding=(10, 0))))
-        
+
         # adciona o readme do app
         if appconfig.get("docs"):
             with open(appconfig["docs"],"r") as readme:
                 docs_md =  readme.read()
-                
+
             docs_box = toga.Box(style=Pack(direction=COLUMN, padding=10, flex=1))
             docs_html = markdown(docs_md)
             docs_html = re.sub(
-                    r'src="(?!http)(.*?)"', 
-                    rf'src="file://{appconfig["path"]}/\1"', 
+                    r'src="(?!http)(.*?)"',
+                    rf'src="file://{appconfig["path"]}/\1"',
                     docs_html
                  )
             docs_webview = toga.WebView(style=Pack(flex=1))
@@ -224,35 +241,43 @@ class BitDogStore(toga.App):
 
     async def install(self, widget):
         """instala um app"""
-        # verificar se já está instalando algo
-        if self.installing:
-            return
-        self.installing = True
-        # desabilitar botão
-        widget.enabled = False
-        install_object = Install(self.dropdown.children[0].value, widget.config)
-        # verificar se vai instalar um app python ou c
-        if widget.config.get('micropython_config'):
-            print('install_micropython')
-            await self.install_micropython(install_object)
-        else:
-            print('install_c')
-            # verificar se a placa está em bootmode ou não
-            if self.is_serial(install_object.dev):
-                # modo serial
-                print('install_c serial')
-                await self.put_bootloader_update_firmware(install_object, install_object.config['c_config']['firmware'])
+        try:
+            # verificar se já está instalando algo
+            if self.installing:
+                return
+            self.installing = True
+            # desabilitar botão
+            widget.enabled = False
+            install_object = Install(self.dropdown.children[0].value, widget.config)
+            # verificar se vai instalar um app python ou c
+            if widget.config.get('micropython_config'):
+                print('install_micropython')
+                await self.install_micropython(install_object)
             else:
-                # modo bootload
-                print('install_c bootloader')
-                await self.update_firmware(install_object.config['c_config']['firmware'], install_object.dev)
+                print('install_c')
+                # verificar se a placa está em bootmode ou não
+                if self.is_serial(install_object.dev):
+                    # modo serial
+                    print('install_c serial')
+                    await self.put_bootloader_update_firmware(install_object, install_object.config['c_config']['firmware'])
+                else:
+                    # modo bootload
+                    print('install_c bootloader')
+                    await self.update_firmware(install_object.config['c_config']['firmware'], install_object.dev)
+    
+            # limpar as variaveis de instalação
+            print(f"installing {widget.config['app_name']} {time.time()}")
+            widget.enabled = True
+            self.installing = False
+            self.create_dropdown()
+            print(f"done")
+            await self.dialog(toga.InfoDialog("Instalação Concluída", f'A instalação foi concluída com sucesso'))
+        except Exception as e:
+            await self.dialog(toga.ErrorDialog("Instalação mal sucedida", f'Ocorreu um erro durante a instalação\n{e}'))
+        finally:
+            widget.enabled = True
+            self.installing = False
 
-        # limpar as variaveis de instalação
-        print(f"installing {widget.config['app_name']} {time.time()}")
-        widget.enabled = True
-        self.installing = False
-        self.create_dropdown()
-        print(f"done")
 
     async def install_micropython(self, install_object):
         """instala um app em python na bitdog"""
@@ -267,11 +292,11 @@ class BitDogStore(toga.App):
             # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
             destine_path = file.removeprefix(install_object.config['path']+'/').split('/')
             destine_name = '/'.join(destine_path)
-            
+
             # se o arquivo faz parte do app não deve ser deletado
             if f'/{destine_name}' in files_remove:
                 files_remove.pop(files_remove.index(f'/{destine_name}'))
-                
+
             # verifica se o arquivo está na versão correta
             if cur_version:
                 if new_version.get(destine_name) == cur_version.get(destine_name):
@@ -360,25 +385,25 @@ class BitDogStore(toga.App):
         tools.push_py.push('firmware', 'firmware', dev)
         os.remove('firmware')
 
-    async def remove_files(self,files,dev):
+    async def remove_files(self, files, dev):
         """remove arquivos antigos que não fazem parte do app"""
         for file in files:
             try:
-                push_py.rm(file,dev)
+                push_py.rm(file, dev)
             except:
-                push_py.rmdir(file,dev)
+                push_py.rmdir(file, dev)
             print(f'arquivo {file} apagado')
 
-    async def get_cur_version(self,dev):
+    async def get_cur_version(self, dev):
         """pega a versão dos arquivos que estão no bitdog"""
         try:
-            cur_version = json.loads(push_py.get('version.json',dev))
+            cur_version = json.loads(push_py.get('version.json', dev))
         except:
             cur_version = None
 
         return cur_version
 
-    async def get_cur_app_files(self,dev):
+    async def get_cur_app_files(self, dev):
         """pega os arquivos do bitdog que vão ser possivelmente removidos"""
         files_remove = push_py.ls(dev)
         # exclui o arquivo de versão do firmware
@@ -457,7 +482,6 @@ class BitDogStore(toga.App):
         """atualiza o firmware da placa"""
         # sobe o firmware novo
         push_c.push(firmware,mount)
-        
         # espera até o firmware terminar de subir
         cur_mounts = push_c.get_mounts()
         while mount in cur_mounts:
