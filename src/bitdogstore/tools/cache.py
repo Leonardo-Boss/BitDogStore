@@ -28,3 +28,6 @@ def ls_repos():
 # Retorna o loca da pasta repositories
 def get_repos_dir():
     return repositories
+    
+def get_dir():
+    return repositories

@@ -15,7 +15,7 @@ from bitdogstore.tools import push_py
 from bitdogstore.tools import gen_hash
 from bitdogstore.tools import push_c
 from bitdogstore.tools.find import is_micropython,find_porta
-from bitdogstore.tools.cache import get_repos_dir,ls_repos
+from bitdogstore.tools.cache import get_repos_dir,ls_repos,get_dir
 
 class Install():
     def __init__(self, dev, config) -> None:
@@ -380,10 +380,11 @@ class BitDogStore(toga.App):
 
     def create_firmware(self, new_firmware, dev):
         """cria arquivo de versão para o firmware e sobe na bitdog"""
-        with open('firmware', 'w') as file:
+        path = os.path.join(get_dir(), 'firmware')
+        with open(path, 'w') as file:
             file.write(new_firmware)
-        tools.push_py.push('firmware', 'firmware', dev)
-        os.remove('firmware')
+        tools.push_py.push(path, 'firmware', dev)
+        os.remove(path)
 
     async def remove_files(self, files, dev):
         """remove arquivos antigos que não fazem parte do app"""
@@ -416,11 +417,12 @@ class BitDogStore(toga.App):
 
     async def update_version(self, new_version, dev):
         """atualiza o arquivo de versão dos arquivos do app python"""
-        with open('version.json', 'w') as file:
+        path = os.path.join(get_dir(), 'version.json')
+        with open(path, 'w') as file:
             json.dump(new_version,file)
         # TODO: mudar para o cache
-        tools.push_py.push('version.json', 'version.json', dev)
-        os.remove('version.json')
+        tools.push_py.push(path, 'version.json', dev)
+        os.remove(path)
 
     def windows_path_to_linux(self, path:str):
         return path.replace(r'\\', '/')
@@ -447,7 +449,6 @@ class BitDogStore(toga.App):
     def change_device_install_object_go_back(self, widget):
         install_object:Install = widget.install_object
         dev = self.dropdown.children[0].value
-        print(dev)
         if not dev:
            return 
         install_object.dev = dev
