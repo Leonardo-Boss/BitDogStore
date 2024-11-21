@@ -476,7 +476,8 @@ class BitDogStore(toga.App):
         version = {}
         for file in config['micropython_config']['files']:
             hash = gen_hash(file)
-            destine_path = file.removeprefix(config['path']+'/')
+            file = str(Path(file).as_posix())
+            destine_path = file.removeprefix(str(Path(config['path']).as_posix())+'/')
             version[destine_path] = hash
         return version
 
