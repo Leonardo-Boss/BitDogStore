@@ -291,7 +291,7 @@ class BitDogStore(toga.App):
         # faz instalação dos arquivos python
         for file in install_object.config['micropython_config']['files']:
             # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
-            destine_path = str(Path(file).as_posix).removeprefix(str(Path(install_object.config['path']).as_posix())+'/').split('/')
+            destine_path = str(Path(file).as_posix()).removeprefix(str(Path(install_object.config['path']).as_posix())+'/').split('/')
             destine_name = '/'.join(destine_path)
 
             # se o arquivo faz parte do app não deve ser deletado
