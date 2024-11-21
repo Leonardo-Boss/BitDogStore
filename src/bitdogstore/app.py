@@ -1,25 +1,26 @@
-from ast import dump
 from asyncio import sleep
-import textwrap
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, BOLD
-from toga.widgets.scrollcontainer import ScrollContainer
 import bitdogstore.tools as tools
 import time
 import os
 import json
-import serial
 from markdown2 import markdown  # To convert Markdown text to HTML
 import re
 import git
 
-from bitdogstore.tools import ampy
 from bitdogstore.tools import push_py
 from bitdogstore.tools import gen_hash
 from bitdogstore.tools import push_c
 from bitdogstore.tools.find import is_micropython,find_porta
-from bitdogstore.tools.cache import get_repos_dir,ls_repos,create_cache_dirs_if_not_exists
+from bitdogstore.tools.cache import get_repos_dir,ls_repos
+
+class Install():
+    def __init__(self, dev, config) -> None:
+        self.dev = dev
+        self.config = config
+        self.changing_device = False
 
 class BitDogStore(toga.App):
     def startup(self):
@@ -44,7 +45,7 @@ class BitDogStore(toga.App):
         self.main_window.content = self.create_main_box()
         self.main_window.show()
 
-    def create_dropdown(self, widget=None):
+    def create_dropdown(self, _=None):
         """Cria dropdown com placas em modo serial e modo bootload"""
         # Dropdown menu (Selection widget)
         self.ports = {}
@@ -63,7 +64,7 @@ class BitDogStore(toga.App):
         self.dropdown.children[0].items = items
         self.dropdown.children[1].on_press = self.create_dropdown
 
-    def create_dropdown_c(self, widget=None):
+    def create_dropdown_c(self, _=None):
         """Cria dropdown com placas em modo bootload"""
         # acha placas em modo bootload
         mount_ports = push_c.get_mounts()
@@ -75,7 +76,7 @@ class BitDogStore(toga.App):
         self.dropdown.children[0].items = mount_ports
         self.dropdown.children[1].on_press = self.create_dropdown_c
 
-    def create_dropdown_py(self, widget=None):
+    def create_dropdown_py(self, _=None):
         """Cria dropdown com placas em modo serial"""
         # acha placas em modo serial
         items = list(map(lambda x: x.device, tools.find.find_pico_porta()))
@@ -92,7 +93,6 @@ class BitDogStore(toga.App):
         # criar botões e dropdown
         add_repo_button = toga.Button("Adicionar Repositório", on_press=self.on_add_press, style=Pack(padding=10))
         update_button = toga.Button("Atualizar Repositórios", on_press=self.update_repos, style=Pack(padding=10))
-        buttons = []
         dropdown = toga.Box(children=[self.label, self.dropdown], style=Pack(direction=COLUMN))
         width = 300
         j = 0
@@ -127,7 +127,7 @@ class BitDogStore(toga.App):
         stuff = toga.Box(children=[add_repo_button]+[update_button]+[dropdown]+boxes_, style=Pack(direction=COLUMN))
         return toga.ScrollContainer(content= stuff)
 
-    def update_repos(self,widget):
+    def update_repos(self, _):
         """atualiza os repositorios"""
         for repo in ls_repos():
             origin = git.Repo(repo).remotes.origin
@@ -139,7 +139,7 @@ class BitDogStore(toga.App):
         app_config = widget.config
         self.show_app_screen(app_config)
         
-    def on_add_press(self, widget):
+    def on_add_press(self, _):
         """troca para a tela de adicionar repositorio"""
         self.show_add_screen()
 
@@ -154,7 +154,7 @@ class BitDogStore(toga.App):
         text_input = toga.TextInput(placeholder="Insira a URL")
 
         # Create a button
-        def on_button_click(widget):
+        def on_button_click(_):
             try:
                 git.Repo.clone_from(text_input.value, os.path.join(get_repos_dir(),os.path.splitext(os.path.basename(text_input.value))[0]))
             except:
@@ -174,6 +174,7 @@ class BitDogStore(toga.App):
     def show_app_screen(self, appconfig):
         """Cria a tela para cada app"""
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
+        self.create_dropdown()
 
         # adiciona botões e widgets
         self.install_button.config = appconfig
@@ -212,6 +213,15 @@ class BitDogStore(toga.App):
         # troca para a nova tela
         self.main_window.content = box
 
+    def app_is_python(self, config):
+        if config.get('micropython_config'):
+            return True
+        else:
+            return False
+
+    def is_serial(self, port):
+        return self.ports[port]
+
     async def install(self, widget):
         """instala um app"""
         # verificar se já está instalando algo
@@ -220,21 +230,22 @@ class BitDogStore(toga.App):
         self.installing = True
         # desabilitar botão
         widget.enabled = False
+        install_object = Install(self.dropdown.children[0].value, widget.config)
         # verificar se vai instalar um app python ou c
         if widget.config.get('micropython_config'):
             print('install_micropython')
-            await self.install_micropython(widget.config)
+            await self.install_micropython(install_object)
         else:
             print('install_c')
             # verificar se a placa está em bootmode ou não
-            if self.ports[self.dropdown.children[0].value]:
+            if self.is_serial(install_object.dev):
                 # modo serial
                 print('install_c python')
-                await self.select_device_window_c(widget.config)
+                await self.put_bootloader_update_firmware(install_object, install_object.config['c_config']['firmware'])
             else:
                 # modo bootload
                 print('install_c c')
-                await self.update_firmware(widget.config['c_config']['firmware'])
+                await self.update_firmware(install_object.config['c_config']['firmware'], install_object.dev)
 
         # limpar as variaveis de instalação
         print(f"installing {widget.config['app_name']} {time.time()}")
@@ -242,21 +253,18 @@ class BitDogStore(toga.App):
         self.installing = False
         print(f"done")
 
-    async def install_micropython(self, config):
+    async def install_micropython(self, install_object):
         """instala um app em python na bitdog"""
-        dev = self.dropdown.children[0].value
-
-        await self.check_change_micropython_firmware(config,dev)
-        dev = self.dropdown.children[0].value
-        print(f"Installing {config['path']}")
-        new_version = await self.gen_version(config)
-        cur_version = await self.get_cur_version(dev)
-        files_remove = await self.get_cur_app_files(dev)
+        await self.check_change_micropython_firmware(install_object)
+        print(f"Installing {install_object.config['path']}")
+        new_version = await self.gen_version(install_object.config)
+        cur_version = await self.get_cur_version(install_object.dev)
+        files_remove = await self.get_cur_app_files(install_object.dev)
         
         # faz instalação dos arquivos python
-        for file in config['micropython_config']['files']:
+        for file in install_object.config['micropython_config']['files']:
             # remover caminho do sistema para ter o caminho que será salvo no BitDogLab
-            destine_path = file.removeprefix(config['path']+'/').split('/')
+            destine_path = file.removeprefix(install_object.config['path']+'/').split('/')
             destine_name = '/'.join(destine_path)
             
             # se o arquivo faz parte do app não deve ser deletado
@@ -272,37 +280,48 @@ class BitDogStore(toga.App):
             print(f'{destine_name} diferente')
             # Criar pastas
             if len(destine_path) > 1:
-                for i, dir in enumerate(destine_path[:1]):
-                    tools.push_py.mkdir(dir, dev)
+                for _, dir in enumerate(destine_path[:1]):
+                    tools.push_py.mkdir(dir, install_object.dev)
             # sobe o arquivo python
-            tools.push_py.push(file, destine_name, dev)
-        await self.remove_files(files_remove,dev)
-        await self.update_version(new_version,dev)
+            tools.push_py.push(file, destine_name, install_object.dev)
+        await self.remove_files(files_remove, install_object.dev)
+        await self.update_version(new_version, install_object.dev)
 
-    async def check_change_micropython_firmware(self,config,dev):
+    async def put_bootloader_update_firmware(self, install_object:Install, firmware):
+        install_object.changing_device = True
+        self.put_bitdog_in_bootloader_window(install_object)
+        # espera a placa entrar em bootloader
+        while not install_object.changing_device:
+            await sleep(0.01)
+        await self.update_firmware(firmware, install_object.dev)
+
+    async def check_change_micropython_firmware(self, install_object:Install):
         """verifica se precisa subir o firmware do micropython e sobe se necessário"""
         # gera o hash do firmware querido
-        new_firmware = gen_hash(config['micropython_config']['firmware'])
-        print('self.ports',self.ports[dev],dev)
+        new_firmware = gen_hash(install_object.config['micropython_config']['firmware'])
+        print('self.ports',self.is_serial(install_object.dev), install_object.dev)
         
         # verifica se o bitdog está em modo bootload ou serial
-        if self.ports[dev]:
+        if self.is_serial(install_object.dev):
             # modo serial
             # verifica se está com micropython instalado
-            if not is_micropython(find_porta(dev)):
+            if not is_micropython(find_porta(install_object.dev)):
                 # não é micropython
                 print("Mudando Firmware para micropython")
-                self.firmware_updated = False
-                self.select_device_window(config)
-                # espera o firmware ser atualizado
-                while not self.firmware_updated:
-                    await sleep(0.5)
-                return
+                await self.put_bootloader_update_firmware(install_object, install_object.config['micropython_config']['firmware'])
+
+                # escolher placa serial correta
+                install_object.changing_device = True
+                self.choose_correct_serial_bitdog_window(install_object)
+                # espera a placa entrar em bootloader
+                while not install_object.changing_device:
+                    await sleep(0.01)
+
             else:
                 # é micropython
                 try:
                     # procura o arquivo com o hash do firmware dentro do micropython
-                    cur_firmware = push_py.get('firmware',dev).decode()
+                    cur_firmware = push_py.get('firmware',install_object.dev).decode()
                 except:
                     # não achou o arquivo
                     cur_firmware = None
@@ -311,21 +330,23 @@ class BitDogStore(toga.App):
                 if new_firmware != cur_firmware:
                     # troca o firmware
                     print('Firmware Diferente')
-                    self.firmware_updated = False
-                    self.select_device_window(config)
-                    while not self.firmware_updated:
-                        await sleep(0.5)
-                    return
+                    await self.put_bootloader_update_firmware(install_object, install_object.config['micropython_config']['firmware'])
+
+                    # escolher placa serial correta
+                    install_object.changing_device = True
+                    self.choose_correct_serial_bitdog_window(install_object)
+                    # espera a placa entrar em bootloader
+                    while not install_object.changing_device:
+                        await sleep(0.01)
         else:
             # modo boot
             # troca o firmware
-            await self.update_firmware(config['micropython_config']['firmware'])
+            await self.update_firmware(install_object.config['micropython_config']['firmware'], install_object.dev)
             self.firmware_updated = False
-            self.select_device_window_py(config)
+            self.choose_correct_serial_bitdog_window(install_object)
             while not self.firmware_updated:
-                await sleep(0.5)
-            return
-        self.create_firmware(new_firmware, dev)
+                await sleep(0.01)
+        self.create_firmware(new_firmware, install_object.dev)
 
     def create_firmware(self, new_firmware, dev):
         """cria arquivo de versão para o firmware e sobe na bitdog"""
@@ -373,11 +394,11 @@ class BitDogStore(toga.App):
     def windows_path_to_linux(self, path:str):
         return path.replace(r'\\', '/')
 
-    def back_to_main(self, widget):
+    def back_to_main(self, _):
         """Return to the main screen."""
         self.main_window.content = self.create_main_box()
 
-    def select_device_window(self, config):
+    def put_bitdog_in_bootloader_window(self, install_object:Install):
         """tela para colocar o bitdog em modo bootload"""
         self.create_dropdown_c()
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
@@ -386,13 +407,19 @@ class BitDogStore(toga.App):
         box.add(self.dropdown)
         box.add(self.label)
         box.add(label)
-        button = toga.Button("Ok", on_press=self.update_firmware_go_back, style=Pack(padding=10))
-        button.config = config
+        button = toga.Button("Ok", on_press=self.change_device_install_object_go_back, style=Pack(padding=10))
+        button.config = install_object
         box.add(button)
 
         self.main_window.content = box
 
-    def select_device_window_py(self, config):
+    def change_device_install_object_go_back(self, widget):
+        install_object:Install = widget.install_object
+        install_object.dev = self.dropdown.children[0].value
+        install_object.changing_device = False
+        self.show_app_screen(install_object.config)
+
+    def choose_correct_serial_bitdog_window(self, install_object:Install):
         """window for selecting a device after python firmware install"""
         self.create_dropdown_py()
         box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
@@ -401,52 +428,11 @@ class BitDogStore(toga.App):
         box.add(self.dropdown)
         box.add(self.label)
         box.add(label)
-        button = toga.Button("Ok", on_press=self.create_firmware_version_go_back, style=Pack(padding=10))
-        button.config = config
+        button = toga.Button("Ok", on_press=self.change_device_install_object_go_back, style=Pack(padding=10))
+        button.config = install_object
         box.add(button)
 
         self.main_window.content = box
-
-    async def create_firmware_version_go_back(self, widget):
-        config = widget.config
-        self.show_app_screen(config)
-        self.create_dropdown()
-        new_firmware = gen_hash(config['micropython_config']['firmware'])
-        self.create_firmware(new_firmware, self.dropdown.children[0].value)
-        self.firmware_updated = True
-
-    async def update_firmware_go_back(self, widget):
-        """atualiza o firmware e volta para a tela do app"""
-        config = widget.config
-        self.show_app_screen(config)
-        self.create_dropdown()
-        new_firmware = config['micropython_config']['firmware']
-        await self.update_firmware(new_firmware)
-        self.select_device_window_py(widget.config)
-
-    async def select_device_window_c(self, config):
-        """tela de seleção de bitdog em bootmode"""
-        self.create_dropdown_c()
-        box = toga.Box(style=Pack(direction=COLUMN, alignment='center', padding=10))
-        label = toga.Label("Coloque a BitDogLab em mode bootload clique em refresh e escolha a placa certa", style=Pack(padding=(10, 0)))
-        box.add(self.dropdown)
-        box.add(self.label)
-        box.add(label)
-        button = toga.Button("Ok", on_press=self.update_firmware_go_back_c, style=Pack(padding=10))
-        button.config = config
-        box.add(button)
-
-        self.main_window.content = box
-
-    async def update_firmware_go_back_c(self, widget):
-        """atualiza o firmware e volta para a tela do app"""
-        config = widget.config
-        self.create_dropdown()
-        self.show_app_screen(config)
-        new_firmware = config['c_config']['firmware']
-        # atualiza o firmware
-        await self.update_firmware(new_firmware)
-        self.firmware_updated = True
 
     async def gen_version(self,config):
         """gera a versão dos arquivos"""
@@ -457,10 +443,8 @@ class BitDogStore(toga.App):
             version[destine_path] = hash
         return version
 
-    async def update_firmware(self,firmware):
+    async def update_firmware(self,firmware, mount):
         """atualiza o firmware da placa"""
-        mount = self.dropdown.children[0].value
-
         # sobe o firmware novo
         push_c.push(firmware,mount)
         
@@ -468,7 +452,7 @@ class BitDogStore(toga.App):
         cur_mounts = push_c.get_mounts()
         while mount in cur_mounts:
             cur_mounts = push_c.get_mounts()
-            await sleep(1)
+            await sleep(0.5)
 
 def main():
     return BitDogStore()
