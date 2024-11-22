@@ -17,7 +17,7 @@ def create_cache_dirs_if_not_exists():
 def extract_default_to_cache():
     if not ls_repos():
         file_path = os.path.realpath(__file__)
-        file_path = file_path.removesuffix('/cache.py')
+        file_path = file_path.removesuffix('cache.py')
         with zipfile.ZipFile(os.path.join(file_path,'default.zip'), 'r') as zip_ref:
             zip_ref.extractall(repositories)
         

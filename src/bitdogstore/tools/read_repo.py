@@ -37,7 +37,7 @@ def get_apps_configs(repos: list):
                                     config['micropython_config']['firmware'] = os.path.join(dir,linux_to_os(repo['repo_micropython_firmware']))
                                 else:
                                     file_path = os.path.realpath(__file__)
-                                    file_path = file_path.removesuffix('/read_repo.py')
+                                    file_path = file_path.removesuffix('read_repo.py')
                                     config['micropython_config']['firmware'] = os.path.join(
                                         file_path,'default.uf2')
                             else:

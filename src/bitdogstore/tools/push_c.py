@@ -70,7 +70,6 @@ elif sys.platform.startswith('linux'):
 
     # Copia o arquivo para o disco
     def push(file, mount):
-        print(mount)
         shutil.copy(file,mount)
 
 # Se o dispositivo não for nem Linux nem Windows, dará erro
