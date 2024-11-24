@@ -155,7 +155,3 @@ Após isso, será solicitado escolher uma placa em modo Serial para enfim instal
 ![](images/image12)  
 Ao pressionar Ok enfim começará a instalação, mais uma vez pode demorar um tempo para continuar. Primeiramente será colocado o arquivo firmware dentro da placa. Esse arquivo consiste de um hash do arquivo de firmware com o qual está carregado. Após isso será apagado arquivos presentes na placa o qual não são mais necessários. Em seguida será transferido para a placa os arquivos indicados no app.json. Então será criado o version.json dentro da placa. Esse arquivo consiste de todos os arquivos que deveriam ter sido transferidos para a placa  e suas hashes. Por fim, será checado se todos os arquivos do version.json estão realmente presente na placa. Então aparecerá um pop-up para o usuário indicando o sucesso ou falha da instalação. Abaixo a imagem de sucesso:  
 ![](images/image13)
-
-# Maior desafio do projeto
-
-Se acostumar com a biblioteca de interface e fazer a versão para Windows, a qual não conseguimos com que apresente  as imagens do README.
